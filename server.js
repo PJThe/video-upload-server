@@ -52,16 +52,14 @@ app.get("/videos", async (req, res) => {
     }).promise();
 
     const files = (data.Contents || [])
-      .filter(item => item.Size > 0)
+      .filter(i => i.Size > 0)
       .sort((a, b) => b.LastModified - a.LastModified)
-      .map(item => {
-        return `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${item.Key}`;
-      });
+      .map(item => item.Key); // ONLY KEY
 
     res.json(files);
 
   } catch (err) {
-    console.log("LIST ERROR:", err);
+    console.log(err);
     res.status(500).json({ error: err.message });
   }
 });
