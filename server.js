@@ -41,3 +41,24 @@ app.post("/upload", upload.single("video"), async (req, res) => {
 app.listen(process.env.PORT || 3000, () => {
   console.log("Server running");
 });
+
+app.get("/videos", async (req, res) => {
+  try {
+    const data = await s3.listObjectsV2({
+      Bucket: process.env.S3_BUCKET,
+      Prefix: "videos/"
+    }).promise();
+
+    const files = (data.Contents || [])
+      .sort((a, b) => new Date(a.LastModified) - new Date(b.LastModified))
+      .map(item => {
+        return `https://media.pjthedj.ca/${item.Key}`;
+      });
+
+    res.json(files);
+
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ error: "Failed to list videos" });
+  }
+});
