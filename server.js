@@ -16,6 +16,9 @@ AWS.config.update({
 
 const s3 = new AWS.S3();
 
+/* -------------------------
+   UPLOAD ENDPOINT
+--------------------------*/
 app.post("/upload", upload.single("video"), async (req, res) => {
   try {
     const file = req.file;
@@ -38,10 +41,9 @@ app.post("/upload", upload.single("video"), async (req, res) => {
   }
 });
 
-app.listen(process.env.PORT || 3000, () => {
-  console.log("Server running");
-});
-
+/* -------------------------
+   LIST VIDEOS ENDPOINT
+--------------------------*/
 app.get("/videos", async (req, res) => {
   try {
     const data = await s3.listObjectsV2({
@@ -61,4 +63,11 @@ app.get("/videos", async (req, res) => {
     console.log(err);
     res.status(500).json({ error: "Failed to list videos" });
   }
+});
+
+/* -------------------------
+   START SERVER
+--------------------------*/
+app.listen(process.env.PORT || 3000, () => {
+  console.log("Server running");
 });
