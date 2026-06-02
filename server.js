@@ -17,6 +17,11 @@ AWS.config.update({
 const s3 = new AWS.S3();
 
 /* -------------------------
+   SIMPLE IN-MEMORY QUEUE
+--------------------------*/
+let videoQueue = [];
+
+/* -------------------------
    UPLOAD ENDPOINT
 --------------------------*/
 app.post("/upload", upload.single("video"), async (req, res) => {
@@ -33,6 +38,9 @@ app.post("/upload", upload.single("video"), async (req, res) => {
       ContentType: "video/webm"
     }).promise();
 
+    // store locally (no S3 listing required)
+    videoQueue.push(key);
+
     res.json({ success: true, key });
 
   } catch (err) {
@@ -42,26 +50,17 @@ app.post("/upload", upload.single("video"), async (req, res) => {
 });
 
 /* -------------------------
-   LIST VIDEOS ENDPOINT
+   LIST VIDEOS (NO S3 LISTING)
 --------------------------*/
-app.get("/videos", async (req, res) => {
-  try {
-    const data = await s3.listObjectsV2({
-      Bucket: process.env.S3_BUCKET,
-      Prefix: "videos/"
-    }).promise();
+app.get("/videos", (req, res) => {
+  const files = videoQueue
+    .slice()
+    .reverse()
+    .map(key => {
+      return `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+    });
 
-    const files = (data.Contents || [])
-      .filter(i => i.Size > 0)
-      .sort((a, b) => b.LastModified - a.LastModified)
-      .map(item => item.Key); // ONLY KEY
-
-    res.json(files);
-
-  } catch (err) {
-    console.log(err);
-    res.status(500).json({ error: err.message });
-  }
+  res.json(files);
 });
 
 /* -------------------------
