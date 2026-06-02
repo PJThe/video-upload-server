@@ -52,16 +52,17 @@ app.get("/videos", async (req, res) => {
     }).promise();
 
     const files = (data.Contents || [])
-      .sort((a, b) => new Date(a.LastModified) - new Date(b.LastModified))
+      .filter(item => item.Size > 0)
+      .sort((a, b) => b.LastModified - a.LastModified)
       .map(item => {
-        return `https://media.pjthedj.ca/${item.Key}`;
+        return `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${item.Key}`;
       });
 
     res.json(files);
 
   } catch (err) {
-    console.log(err);
-    res.status(500).json({ error: "Failed to list videos" });
+    console.log("LIST ERROR:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
