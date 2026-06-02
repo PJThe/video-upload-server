@@ -52,15 +52,26 @@ app.post("/upload", upload.single("video"), async (req, res) => {
 /* -------------------------
    LIST VIDEOS (NO S3 LISTING)
 --------------------------*/
-app.get("/videos", (req, res) => {
-  const files = videoQueue
-    .slice()
-    .reverse()
-    .map(key => {
-      return `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
-    });
+app.get("/videos", async (req, res) => {
+  try {
+    const data = await s3.listObjectsV2({
+      Bucket: process.env.S3_BUCKET,
+      Prefix: "videos/"
+    }).promise();
 
-  res.json(files);
+    const files = (data.Contents || [])
+      .filter(i => i.Size > 0)
+      .sort((a, b) => b.LastModified - a.LastModified)
+      .map(item =>
+        `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${item.Key}`
+      );
+
+    res.json(files);
+
+  } catch (err) {
+    console.log("LIST ERROR:", err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 /* -------------------------
