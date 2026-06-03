@@ -17,12 +17,7 @@ AWS.config.update({
 const s3 = new AWS.S3();
 
 /* -------------------------
-   SIMPLE IN-MEMORY QUEUE
---------------------------*/
-let videoQueue = [];
-
-/* -------------------------
-   UPLOAD ENDPOINT
+   UPLOAD VIDEO
 --------------------------*/
 app.post("/upload", upload.single("video"), async (req, res) => {
   try {
@@ -38,19 +33,28 @@ app.post("/upload", upload.single("video"), async (req, res) => {
       ContentType: "video/webm"
     }).promise();
 
-    // store locally (no S3 listing required)
-    videoQueue.push(key);
-
     res.json({ success: true, key });
 
   } catch (err) {
     console.log(err);
-    res.status(500).send("Upload failed");
+    res.status(500).json({ error: "Upload failed" });
   }
 });
 
 /* -------------------------
-   LIST VIDEOS (NO S3 LISTING)
+   SIGNED URL HELPER
+--------------------------*/
+function getSignedUrl(key) {
+  return s3.getSignedUrl("getObject", {
+    Bucket: process.env.S3_BUCKET,
+    Key: key,
+    Expires: 60 * 60 // 1 hour valid link
+  });
+}
+
+/* -------------------------
+   LIST VIDEOS (FIXED)
+   RETURNS PLAYABLE URLS
 --------------------------*/
 app.get("/videos", async (req, res) => {
   try {
@@ -60,23 +64,23 @@ app.get("/videos", async (req, res) => {
     }).promise();
 
     const files = (data.Contents || [])
-      .filter(i => i.Size > 0)
-      .sort((a, b) => b.LastModified - a.LastModified)
-      .map(item =>
-        `https://${process.env.S3_BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${item.Key}`
-      );
+      .sort((a, b) => new Date(a.LastModified) - new Date(b.LastModified))
+      .map(item => {
+        return getSignedUrl(item.Key);
+      });
 
     res.json(files);
 
   } catch (err) {
-    console.log("LIST ERROR:", err);
-    res.status(500).json({ error: err.message });
+    console.log(err);
+    res.status(500).json({ error: "Failed to list videos" });
   }
 });
 
 /* -------------------------
    START SERVER
 --------------------------*/
-app.listen(process.env.PORT || 3000, () => {
-  console.log("Server running");
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
